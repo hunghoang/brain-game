@@ -5,6 +5,9 @@ class LeaderboardScene extends Phaser.Scene {
     }
 
     init(data) {
+        if (typeof SoundManager !== 'undefined' && SoundManager.stopMenuBGM) {
+            SoundManager.stopMenuBGM();
+        }
         // Nhận tham số từ scene gọi tới để kích hoạt đúng tab
         this.selectedTab = (data && data.gameType) ? data.gameType : 'schulte_table';
         this.contentElements = [];

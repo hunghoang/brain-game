@@ -107,9 +107,205 @@ const SoundManager = {
             this.audioCtx = new AudioContext();
         }
         if (this.audioCtx.state === 'suspended') {
-            this.audioCtx.resume();
+            this.audioCtx.resume().catch(() => {});
         }
         return this.audioCtx;
+    },
+
+    // Quản lý trạng thái BGM
+    isMenuMode: false,
+    isMuted: false,
+
+    // ==========================================
+    // BGM: Ambient Chill Synth + Sóng Alpha Wave (10Hz)
+    // ==========================================
+    bgmState: {
+        isPlaying: false,
+        masterGain: null,
+        loopTimer: null,
+        activeOscs: []
+    },
+
+    startMenuBGM() {
+        this.isMenuMode = true;
+        if (this.isMuted) return;
+        if (this.bgmState.isPlaying) return;
+
+        try {
+            const ctx = this.getAudioContext();
+            
+            // Nếu trình duyệt đang chặn (suspended do chính sách Autoplay), thử resume
+            if (ctx.state === 'suspended') {
+                ctx.resume().then(() => {
+                    if (this.isMenuMode && !this.isMuted && !this.bgmState.isPlaying) {
+                        this._initBGMNodes(ctx);
+                    }
+                }).catch(() => {});
+                return;
+            }
+
+            this._initBGMNodes(ctx);
+        } catch (e) {
+            console.log("Audio not allowed yet:", e);
+        }
+    },
+
+    _initBGMNodes(ctx) {
+        if (this.bgmState.isPlaying) return;
+        if (this.isMuted || !this.isMenuMode) return;
+        this.bgmState.isPlaying = true;
+        this.bgmState.activeOscs = [];
+
+        // Master Gain cho BGM (Fade-in êm ái 1.5s, mức âm lượng rõ ràng 0.22)
+        const masterGain = ctx.createGain();
+        masterGain.gain.setValueAtTime(0.0001, ctx.currentTime);
+        masterGain.gain.linearRampToValueAtTime(0.22, ctx.currentTime + 1.5);
+        masterGain.connect(ctx.destination);
+        this.bgmState.masterGain = masterGain;
+
+        // 1. Alpha Wave Generator (Binaural Beats: 200Hz L, 210Hz R -> 10Hz nhịp sóng Alpha)
+        try {
+            const alphaGain = ctx.createGain();
+            alphaGain.gain.setValueAtTime(0.06, ctx.currentTime);
+            alphaGain.connect(masterGain);
+
+            // Tai trái: 200 Hz
+            const leftOsc = ctx.createOscillator();
+            leftOsc.type = 'sine';
+            leftOsc.frequency.setValueAtTime(200, ctx.currentTime);
+
+            // Tai phải: 210 Hz
+            const rightOsc = ctx.createOscillator();
+            rightOsc.type = 'sine';
+            rightOsc.frequency.setValueAtTime(210, ctx.currentTime);
+
+            if (ctx.createStereoPanner) {
+                const pannerL = ctx.createStereoPanner();
+                pannerL.pan.setValueAtTime(-0.85, ctx.currentTime);
+                leftOsc.connect(pannerL);
+                pannerL.connect(alphaGain);
+
+                const pannerR = ctx.createStereoPanner();
+                pannerR.pan.setValueAtTime(0.85, ctx.currentTime);
+                rightOsc.connect(pannerR);
+                pannerR.connect(alphaGain);
+            } else {
+                leftOsc.connect(alphaGain);
+                rightOsc.connect(alphaGain);
+            }
+
+            leftOsc.start();
+            rightOsc.start();
+            this.bgmState.activeOscs.push(leftOsc, rightOsc);
+
+            // 2. 10 Hz Isochronic Pulse (Giúp tạo nhịp sóng Alpha cả khi nghe loa ngoài mono)
+            const lfo = ctx.createOscillator();
+            const lfoGain = ctx.createGain();
+            lfo.frequency.setValueAtTime(10, ctx.currentTime); // 10 Hz Alpha
+            lfoGain.gain.setValueAtTime(0.02, ctx.currentTime);
+            lfo.connect(lfoGain);
+            lfoGain.connect(masterGain.gain);
+            lfo.start();
+            this.bgmState.activeOscs.push(lfo);
+        } catch (err) {}
+
+        // 3. Ambient Chill Synth Pads (Vòng hợp âm mượt mà Cmaj7 -> Am7 -> Fmaj7 -> G6)
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(650, ctx.currentTime); // Tần số ấm áp, đầy đặn
+        filter.Q.setValueAtTime(0.7, ctx.currentTime);
+        filter.connect(masterGain);
+
+        const chordList = [
+            [130.81, 196.00, 246.94, 329.63], // Cmaj7 (C3, G3, B3, E4)
+            [110.00, 164.81, 220.00, 261.63], // Am7 (A2, E3, A3, C4)
+            [87.31, 130.81, 174.61, 220.00],  // Fmaj7 (F2, C3, F3, A3)
+            [98.00, 146.83, 196.00, 246.94]   // G6 (G2, D3, G3, B3)
+        ];
+
+        let chordIdx = 0;
+        const chordDuration = 4.0;
+
+        const playNextChord = () => {
+            if (!this.bgmState.isPlaying || !this.isMenuMode) return;
+            const now = ctx.currentTime;
+            const freqs = chordList[chordIdx];
+            chordIdx = (chordIdx + 1) % chordList.length;
+
+            freqs.forEach(f => {
+                const osc = ctx.createOscillator();
+                const noteGain = ctx.createGain();
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(f, now);
+
+                // Envelope êm ái: vuốt lên và nhả chậm
+                noteGain.gain.setValueAtTime(0.0001, now);
+                noteGain.gain.linearRampToValueAtTime(0.14, now + 1.2);
+                noteGain.gain.setValueAtTime(0.14, now + chordDuration - 1.0);
+                noteGain.gain.exponentialRampToValueAtTime(0.0001, now + chordDuration + 1.2);
+
+                osc.connect(noteGain);
+                noteGain.connect(filter);
+
+                osc.start(now);
+                osc.stop(now + chordDuration + 1.3);
+                this.bgmState.activeOscs.push(osc);
+            });
+        };
+
+        playNextChord();
+
+        this.bgmState.loopTimer = setInterval(() => {
+            if (this.bgmState.isPlaying && this.isMenuMode) {
+                playNextChord();
+            } else {
+                clearInterval(this.bgmState.loopTimer);
+                this.bgmState.loopTimer = null;
+            }
+        }, chordDuration * 1000);
+    },
+
+    stopMenuBGM() {
+        this.isMenuMode = false;
+        try {
+            this.bgmState.isPlaying = false;
+
+            if (this.bgmState.loopTimer) {
+                clearInterval(this.bgmState.loopTimer);
+                this.bgmState.loopTimer = null;
+            }
+
+            const ctx = this.audioCtx;
+            if (ctx && this.bgmState.masterGain) {
+                try {
+                    this.bgmState.masterGain.gain.cancelScheduledValues(ctx.currentTime);
+                    this.bgmState.masterGain.gain.setValueAtTime(0, ctx.currentTime);
+                    this.bgmState.masterGain.disconnect();
+                } catch (e) {}
+                this.bgmState.masterGain = null;
+            }
+
+            if (this.bgmState.activeOscs) {
+                this.bgmState.activeOscs.forEach(osc => {
+                    try {
+                        osc.stop();
+                        osc.disconnect();
+                    } catch (e) {}
+                });
+                this.bgmState.activeOscs = [];
+            }
+        } catch (e) {}
+    },
+
+    toggleMute() {
+        this.isMuted = !this.isMuted;
+        if (this.isMuted) {
+            this.stopMenuBGM();
+        } else if (this.isMenuMode) {
+            this.startMenuBGM();
+        }
+        return !this.isMuted;
     },
 
     // Hàm tạo tiếng Bip với tần số và thời lượng tùy chỉnh
@@ -335,6 +531,7 @@ class SchulteScene extends Phaser.Scene {
     }
 
     init() {
+        SoundManager.stopMenuBGM();
         this.currentNumber = 1;
         this.maxNumber = 25;
         this.startTime = 0;
@@ -355,6 +552,7 @@ class SchulteScene extends Phaser.Scene {
     }
 
     create() {
+        SoundManager.stopMenuBGM();
         const { width, height } = this.scale;
         this.add.rectangle(width / 2, height / 2, width, height, 0x121212).setDepth(-1);
       
@@ -834,6 +1032,7 @@ class SchulteMemoScene extends Phaser.Scene {
     }
 
     init() {
+        SoundManager.stopMenuBGM();
         this.currentNumber = 1;
         this.maxNumber = 9;
         this.startTime = 0;
@@ -842,6 +1041,8 @@ class SchulteMemoScene extends Phaser.Scene {
         this.isGameOver = false;
         this.isMemorizing = true;
         this.isGameStarted = false;
+        this.isLocked = false; // Khóa click khi đang bị phạt do click sai
+        this.penaltyCooldown = 300; // Thời gian phạt không được click sang ô khác (ms)
         this.correctColor = 0x183424; // Xanh lá thật nhẹ / trầm tinh tế trên nền tối
         this.wrongColor = 0xaa0000;
         this.defaultCellColor = 0x1F242C;
@@ -853,6 +1054,7 @@ class SchulteMemoScene extends Phaser.Scene {
     preload() {}
 
     create() {
+        SoundManager.stopMenuBGM();
         const { width, height } = this.scale;
         this.add.rectangle(width / 2, height / 2, width, height, 0x121212).setDepth(-1);
 
@@ -920,6 +1122,7 @@ class SchulteMemoScene extends Phaser.Scene {
                 bg.on('pointerdown', () => {
                     if (this.isGameOver) return;
                     if (this.isMemorizing || !this.isGameStarted) return;
+                    if (this.isLocked) return; // Đang trong thời gian phạt, không cho click
                     if (text.isFound) return;
 
                     if (num === this.currentNumber) {
@@ -948,29 +1151,63 @@ class SchulteMemoScene extends Phaser.Scene {
                             this.endGame(true);
                         }
                     } else {
-                        // Bấm sai số
+                        // Bấm sai số: Khóa click và phạt cộng thêm 0.1s vào đồng hồ
+                        this.isLocked = true;
+                        this.startTime -= 200; // startTime lùi 200ms -> tương đương thời gian chơi bị +0.2s
+
                         bg.setFillStyle(this.wrongColor);
                         bg.setStrokeStyle(2, 0xF85149);
                         SoundManager.playWrong();
 
-                        this.time.delayedCall(160, () => {
+                        // Hiệu ứng nháy chữ đỏ +0.2s cạnh đồng hồ
+                        let penaltyText = this.add.text(x, y - 25, '+0.2s', {
+                            fontSize: '16px',
+                            fontFamily: "'JetBrains Mono', monospace",
+                            fill: '#F85149',
+                            fontStyle: 'bold'
+                        }).setOrigin(0.5).setDepth(15);
+
+                        this.tweens.add({
+                            targets: penaltyText,
+                            y: y - 80,
+                            alpha: 0,
+                            duration: 500,
+                            ease: 'Power1',
+                            onComplete: () => penaltyText.destroy()
+                        });
+
+                        // Rung nhẹ ô bị bấm sai
+                        this.tweens.add({
+                            targets: [bg, text],
+                            x: x + 4,
+                            duration: 45,
+                            yoyo: true,
+                            repeat: 3,
+                            onComplete: () => {
+                                bg.x = x;
+                                text.x = x;
+                            }
+                        });
+
+                        this.time.delayedCall(this.penaltyCooldown, () => {
                             if (!text.isFound) {
                                 bg.setFillStyle(this.defaultCellColor);
                                 bg.setStrokeStyle(2, 0x30363D);
                             }
+                            this.isLocked = false; // Mở lại quyền click sau khi hết phạt
                         });
                     }
                 });
 
                 bg.on('pointerover', () => {
-                    if (!this.isGameOver && !this.isMemorizing && !text.isFound) {
+                    if (!this.isGameOver && !this.isMemorizing && !this.isLocked && !text.isFound) {
                         bg.setFillStyle(this.hoverColor);
                         bg.setStrokeStyle(2, 0x58A6FF);
                     }
                 });
 
                 bg.on('pointerout', () => {
-                    if (!this.isGameOver && !this.isMemorizing && !text.isFound) {
+                    if (!this.isGameOver && !this.isMemorizing && !this.isLocked && !text.isFound) {
                         bg.setFillStyle(this.defaultCellColor);
                         bg.setStrokeStyle(2, 0x30363D);
                     }
@@ -1280,10 +1517,45 @@ class MenuScene extends Phaser.Scene {
     }
 
     create() {
+        // Tự động thử phát nhạc nền ngay khi vào Menu
+        SoundManager.startMenuBGM();
+
+        // Chỉ mở khóa âm thanh khi người dùng tương tác trong MenuScene
+        const unlockBGM = () => {
+            if (this.scene && this.scene.isActive('MenuScene')) {
+                SoundManager.startMenuBGM();
+            }
+        };
+        this.input.on('pointerdown', unlockBGM);
+
+        // Khi rời khỏi MenuScene thì dọn dẹp listener và dừng BGM ngay lập tức
+        this.events.once('shutdown', () => {
+            this.input.off('pointerdown', unlockBGM);
+            SoundManager.stopMenuBGM();
+        });
+
         const { width, height } = this.scale;
 
-        // 1. Cyber Dark Background
-        this.add.rectangle(width / 2, height / 2, width, height, 0x0F1115);
+        // 1. Cyber Dark Background (Cho phép click để kích hoạt nhạc nếu autoplay bị chặn)
+        let bg = this.add.rectangle(width / 2, height / 2, width, height, 0x0F1115).setInteractive();
+        bg.on('pointerdown', unlockBGM);
+
+        // Icon loa bật/tắt nhạc nhỏ gọn ở góc trên bên phải (không viền vuông bao quanh)
+        let soundBtnText = this.add.text(width - 24, 24, SoundManager.isMuted ? '🔇' : '🔊', {
+            fontSize: '15px'
+        })
+            .setOrigin(0.5)
+            .setInteractive({ useHandCursor: true })
+            .setAlpha(0.65)
+            .setDepth(11);
+
+        soundBtnText.on('pointerover', () => { soundBtnText.setAlpha(1); });
+        soundBtnText.on('pointerout', () => { soundBtnText.setAlpha(0.65); });
+        soundBtnText.on('pointerdown', (pointer) => {
+            if (pointer && pointer.event) pointer.event.stopPropagation();
+            const isSoundOn = SoundManager.toggleMute();
+            soundBtnText.setText(isSoundOn ? '🔊' : '🔇');
+        });
 
         // Subtle floating background particles for depth
         for (let i = 0; i < 20; i++) {
@@ -1342,10 +1614,12 @@ class MenuScene extends Phaser.Scene {
 
         // Short and clean button texts
         UIHelpers.createFlatButton(this, width / 2, startY + 15, '5x5 CLASSIC', () => {
+            SoundManager.stopMenuBGM();
             this.scene.start('SchulteScene');
         });
 
         UIHelpers.createFlatButton(this, width / 2, startY + 15 + spacing, '3x3 MEMORY', () => {
+            SoundManager.stopMenuBGM();
             this.scene.start('SchulteMemoScene');
         });
 
@@ -1359,6 +1633,7 @@ class MenuScene extends Phaser.Scene {
         }).setOrigin(0.5);
 
         UIHelpers.createFlatButton(this, width / 2, utilityY + 20, 'LEADERBOARD', () => {
+            SoundManager.stopMenuBGM();
             this.scene.start('LeaderboardScene', { gameType: 'schulte_table' });
         });
 
