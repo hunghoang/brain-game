@@ -1041,8 +1041,11 @@ class SchulteMemoScene extends Phaser.Scene {
         this.isGameOver = false;
         this.isMemorizing = true;
         this.isGameStarted = false;
-        this.isLocked = false; // Khóa click khi đang bị phạt do click sai
-        this.penaltyCooldown = 300; // Thời gian phạt không được click sang ô khác (ms)
+        this.lockedUntil = 0; // Timestamp khóa click, ngăn chặn mọi click spam khi đang bị phạt
+        this.penaltyCooldown = 500; // Khóa 500ms (0.5s) để người chơi cảm nhận rõ bị khựng lại
+        this.penaltyPerMistake = 0.5; // Phạt cộng thêm 0.5s mỗi lần bấm sai
+        this.penaltyCount = 0; // Đếm số lần bấm sai
+        this.penaltyTime = 0; // Tổng thời gian bị phạt (giây)
         this.correctColor = 0x183424; // Xanh lá thật nhẹ / trầm tinh tế trên nền tối
         this.wrongColor = 0xaa0000;
         this.defaultCellColor = 0x1F242C;
@@ -1122,7 +1125,7 @@ class SchulteMemoScene extends Phaser.Scene {
                 bg.on('pointerdown', () => {
                     if (this.isGameOver) return;
                     if (this.isMemorizing || !this.isGameStarted) return;
-                    if (this.isLocked) return; // Đang trong thời gian phạt, không cho click
+                    if (performance.now() < this.lockedUntil) return; // Tuyệt đối chặn click trong thời gian phạt
                     if (text.isFound) return;
 
                     if (num === this.currentNumber) {
@@ -1151,26 +1154,45 @@ class SchulteMemoScene extends Phaser.Scene {
                             this.endGame(true);
                         }
                     } else {
-                        // Bấm sai số: Khóa click và phạt cộng thêm 0.5s vào đồng hồ
-                        this.isLocked = true;
-                        this.startTime -= 500; // startTime lùi 500ms -> tương đương thời gian chơi bị +0.5s
+                        // Bấm sai: Khóa click toàn bộ trong penaltyCooldown (700ms)
+                        this.lockedUntil = performance.now() + this.penaltyCooldown;
+                        this.penaltyCount++;
+                        this.penaltyTime += this.penaltyPerMistake;
+
+                        // Đồng hồ trên màn hình nhảy tăng số NGAY TỨC THÌ và nháy đỏ
+                        let currentDisplayTime = this.getElapsedTime().toFixed(1);
+                        this.timerText.setText(`Time: ${currentDisplayTime}s`);
+                        this.timerText.setFill('#F85149');
+                        this.tweens.add({
+                            targets: this.timerText,
+                            scale: 1.25,
+                            duration: 120,
+                            yoyo: true,
+                            onComplete: () => {
+                                if (this.timerText) {
+                                    this.timerText.setFill('#8B949E');
+                                    this.timerText.setScale(1);
+                                }
+                            }
+                        });
+
                         bg.setFillStyle(this.wrongColor);
                         bg.setStrokeStyle(2, 0xF85149);
                         SoundManager.playWrong();
 
-                        // Hiệu ứng nháy chữ đỏ +0.5s cạnh đồng hồ
-                        let penaltyText = this.add.text(x, y - 25, '+0.5s', {
+                        // Hiệu ứng chữ đỏ bay lên từ ô bấm sai
+                        let penaltyText = this.add.text(x, y - 25, `+${this.penaltyPerMistake}s`, {
                             fontSize: '16px',
                             fontFamily: "'JetBrains Mono', monospace",
-                            fill: '#f7372d',
+                            fill: '#F85149',
                             fontStyle: 'bold'
                         }).setOrigin(0.5).setDepth(15);
 
                         this.tweens.add({
                             targets: penaltyText,
-                            y: y - 80,
+                            y: y - 75,
                             alpha: 0,
-                            duration: 1000,
+                            duration: 650,
                             ease: 'Power1',
                             onComplete: () => penaltyText.destroy()
                         });
@@ -1188,25 +1210,25 @@ class SchulteMemoScene extends Phaser.Scene {
                             }
                         });
 
+                        // Hết thời gian phạt -> Khôi phục màu ô mặc định
                         this.time.delayedCall(this.penaltyCooldown, () => {
                             if (!text.isFound) {
                                 bg.setFillStyle(this.defaultCellColor);
                                 bg.setStrokeStyle(2, 0x30363D);
                             }
-                            this.isLocked = false; // Mở lại quyền click sau khi hết phạt
                         });
                     }
                 });
 
                 bg.on('pointerover', () => {
-                    if (!this.isGameOver && !this.isMemorizing && !this.isLocked && !text.isFound) {
+                    if (!this.isGameOver && !this.isMemorizing && performance.now() >= this.lockedUntil && !text.isFound) {
                         bg.setFillStyle(this.hoverColor);
                         bg.setStrokeStyle(2, 0x58A6FF);
                     }
                 });
 
                 bg.on('pointerout', () => {
-                    if (!this.isGameOver && !this.isMemorizing && !this.isLocked && !text.isFound) {
+                    if (!this.isGameOver && !this.isMemorizing && performance.now() >= this.lockedUntil && !text.isFound) {
                         bg.setFillStyle(this.defaultCellColor);
                         bg.setStrokeStyle(2, 0x30363D);
                     }
@@ -1252,9 +1274,16 @@ class SchulteMemoScene extends Phaser.Scene {
         }
     }
 
+    getElapsedTime() {
+        if (!this.startTime) return 0;
+        let baseElapsed = (performance.now() - this.startTime) / 1000;
+        let totalElapsed = baseElapsed + this.penaltyTime;
+        return parseFloat(totalElapsed.toFixed(1));
+    }
+
     update() {
         if (!this.isGameOver && this.isGameStarted && this.startTime) {
-            let elapsedTime = ((performance.now() - this.startTime) / 1000).toFixed(1);
+            let elapsedTime = this.getElapsedTime().toFixed(1);
             this.timerText.setText(`Time: ${elapsedTime}s`);
         }
     }
@@ -1262,8 +1291,7 @@ class SchulteMemoScene extends Phaser.Scene {
     async endGame(isWin) {
         let thresholdToSave = 10;
         this.isGameOver = true;
-        let playTime = (performance.now() - this.startTime) / 1000;
-        let finalTime = parseFloat(playTime.toFixed(1));
+        let finalTime = this.getElapsedTime();
         
         let isSave = finalTime < thresholdToSave;
 
@@ -1311,6 +1339,15 @@ class SchulteMemoScene extends Phaser.Scene {
             }).setOrigin(0.5).setDepth(21);
 
             let infoY = 0.41;
+            if (this.penaltyCount > 0) {
+                this.add.text(width / 2, height * 0.395, `(Penalty: +${this.penaltyTime.toFixed(1)}s)`, {
+                    fontSize: '12px',
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fill: '#F85149'
+                }).setOrigin(0.5).setDepth(21);
+                infoY = 0.44;
+            }
+
             if (isNewRecord) {
                 this.add.text(width / 2, height * infoY, '⭐ NEW PERSONAL RECORD!', {
                     fontSize: '14px',
