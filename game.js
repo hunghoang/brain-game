@@ -577,7 +577,7 @@ class SchulteScene extends Phaser.Scene {
         const gridSize = 5;
         const startX = width / 2 - 132;
         const startY = 150;
-        const cellSize = 60;
+        const cellSize = 64;
 
         let allCells = [];
 
@@ -723,7 +723,7 @@ class SchulteScene extends Phaser.Scene {
         });
 
         // Nút BACK về Menu trong màn chơi
-        UIHelpers.createFlatButton(this, width / 2, 495, '← MENU', () => {
+        UIHelpers.createFlatButton(this, width / 2, 500, '← MENU', () => {
             this.scene.start('MenuScene');
         });
        
@@ -734,7 +734,12 @@ class SchulteScene extends Phaser.Scene {
 
     update() {
         if (!this.isGameOver && this.startTime > 0) {
-            let elapsedTime = ((performance.now() - this.startTime) / 1000).toFixed(1);
+            var playingTime = performance.now() - this.startTime;
+            let elapsedTime = (playingTime / 1000).toFixed(1);
+            if (playingTime > 60000) {
+                this.endGame(false);
+                return;
+            }
             this.timerText.setText(`Time: ${elapsedTime}s`);
         }
     }
@@ -1284,6 +1289,10 @@ class SchulteMemoScene extends Phaser.Scene {
     update() {
         if (!this.isGameOver && this.isGameStarted && this.startTime) {
             let elapsedTime = this.getElapsedTime().toFixed(1);
+            if (this.getElapsedTime() > 60) {
+                this.endGame(false);
+                return;
+            }
             this.timerText.setText(`Time: ${elapsedTime}s`);
         }
     }
