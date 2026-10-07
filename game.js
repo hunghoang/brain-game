@@ -15,7 +15,7 @@ class UIHelpers {
         let faceBg = scene.add.rectangle(btnX, btnY, 220, 46, 0x1F242C)
             .setInteractive()
             .setOrigin(0.5);
-        faceBg.setStrokeStyle(2, 0x3FB950);
+        faceBg.setStrokeStyle(1.5, 0x2A6A3A);
         faceBg.setDepth(35);
 
         let btnText = scene.add.text(btnX, btnY, text, {
@@ -54,6 +54,49 @@ class UIHelpers {
             }
         };
     };
+
+    /**
+     * Tạo hiệu ứng tung hoa giấy (confetti) rực rỡ khi phá kỷ lục
+     * @param {Phaser.Scene} scene - Scene hiện tại đang gọi
+     */
+    static spawnConfetti(scene) {
+        const { width, height } = scene.scale;
+        const colors = [0x7EE787, 0x3FB950, 0xD29922, 0xF85149, 0x58A6FF, 0xBC8CFF, 0xF0883E, 0xFFE600];
+        const pieceCount = 45;
+
+        for (let i = 0; i < pieceCount; i++) {
+            let startX = Phaser.Math.Between(width * 0.15, width * 0.85);
+            let startY = Phaser.Math.Between(-20, height * 0.25);
+            let color = Phaser.Utils.Array.GetRandom(colors);
+            let w = Phaser.Math.Between(6, 12);
+            let h = Phaser.Math.Between(8, 16);
+
+            let piece = scene.add.rectangle(startX, startY, w, h, color)
+                .setOrigin(0.5)
+                .setDepth(29)
+                .setAngle(Phaser.Math.Between(0, 360));
+
+            let targetX = startX + Phaser.Math.Between(-120, 120);
+            let targetY = height + Phaser.Math.Between(20, 100);
+            let duration = Phaser.Math.Between(2200, 3800);
+            let delay = Phaser.Math.Between(0, 800);
+
+            scene.tweens.add({
+                targets: piece,
+                x: targetX,
+                y: targetY,
+                angle: piece.angle + Phaser.Math.Between(360, 1080),
+                scaleX: { from: 1, to: 0.2 },
+                alpha: { from: 1, to: 0 },
+                delay: delay,
+                duration: duration,
+                ease: 'Quad.easeIn',
+                onComplete: () => {
+                    piece.destroy();
+                }
+            });
+        }
+    }
 }
 
 const SoundManager = {
@@ -163,6 +206,124 @@ const SoundManager = {
                 osc.start(ctx.currentTime + index * 0.08);
                 osc.stop(ctx.currentTime + index * 0.08 + 0.2);
             });
+        } catch (e) {}
+    },
+
+    // 4. Âm thanh Chúc Mừng Phá Kỷ Lục (~4.5s arcade victory jingle đầy năng lượng)
+    playCelebration() {
+        try {
+            const ctx = this.getAudioContext();
+            const now = ctx.currentTime;
+
+            // Nhịp tiết tấu 16th-note nhanh, vui tai phong cách 8-bit / Arcade Jingle
+            // Lead melody (square/triangle pha trộn, phong phú và cuốn hút)
+            const leadNotes = [
+                // Phase 1: Fanfare mở màn dồn dập (0.0s - 1.2s)
+                { f: 523.25, t: 0.00, d: 0.10, v: 0.16 }, // C5
+                { f: 523.25, t: 0.11, d: 0.10, v: 0.16 }, // C5
+                { f: 523.25, t: 0.22, d: 0.10, v: 0.16 }, // C5
+                { f: 659.25, t: 0.35, d: 0.28, v: 0.22 }, // E5
+                { f: 783.99, t: 0.65, d: 0.20, v: 0.22 }, // G5
+                { f: 1046.50, t: 0.88, d: 0.40, v: 0.24 }, // C6!
+
+                // Phase 2: Rung chuông arpeggio vui vẻ (1.3s - 2.5s)
+                { f: 880.00, t: 1.30, d: 0.12, v: 0.18 }, // A5
+                { f: 1046.50, t: 1.44, d: 0.12, v: 0.18 }, // C6
+                { f: 1318.51, t: 1.58, d: 0.24, v: 0.22 }, // E6
+                { f: 1174.66, t: 1.84, d: 0.14, v: 0.20 }, // D6
+                { f: 1046.50, t: 2.00, d: 0.14, v: 0.20 }, // C6
+                { f: 1174.66, t: 2.16, d: 0.32, v: 0.22 }, // D6
+
+                // Phase 3: Cao trào chiến thắng bùng nổ (2.6s - 4.4s)
+                { f: 1046.50, t: 2.55, d: 0.12, v: 0.20 }, // C6
+                { f: 1174.66, t: 2.70, d: 0.12, v: 0.20 }, // D6
+                { f: 1318.51, t: 2.85, d: 0.14, v: 0.22 }, // E6
+                { f: 1567.98, t: 3.02, d: 0.22, v: 0.24 }, // G6
+                { f: 1760.00, t: 3.28, d: 0.22, v: 0.24 }, // A6
+                { f: 2093.00, t: 3.54, d: 0.80, v: 0.26 }  // C7 Grand Finale!
+            ];
+
+            // Chơi lead melody với sóng square mượt để tạo nét arcade retro sống động
+            leadNotes.forEach(n => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                const start = now + n.t;
+                const end = start + n.d;
+
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(n.f, start);
+
+                // Attack nhanh, decay tự nhiên
+                gain.gain.setValueAtTime(0.0001, start);
+                gain.gain.linearRampToValueAtTime(n.v, start + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, end);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                osc.start(start);
+                osc.stop(end);
+            });
+
+            // Bè hòa âm đệm (Chords / Chime arpeggio tạo độ lung linh, sang trọng)
+            const harmonyNotes = [
+                // Phase 1 chords
+                { f: 261.63, t: 0.00, d: 0.30, v: 0.12 }, // C4
+                { f: 329.63, t: 0.35, d: 0.28, v: 0.12 }, // E4
+                { f: 392.00, t: 0.65, d: 0.22, v: 0.12 }, // G4
+                { f: 523.25, t: 0.88, d: 0.45, v: 0.14 }, // C5
+                // Phase 2 chords
+                { f: 440.00, t: 1.30, d: 0.40, v: 0.12 }, // A4
+                { f: 523.25, t: 1.84, d: 0.40, v: 0.12 }, // C5
+                { f: 587.33, t: 2.16, d: 0.35, v: 0.12 }, // D5
+                // Phase 3 grand finale chord
+                { f: 523.25, t: 2.55, d: 0.50, v: 0.13 }, // C5
+                { f: 659.25, t: 3.02, d: 0.50, v: 0.13 }, // E5
+                { f: 783.99, t: 3.54, d: 0.90, v: 0.14 }, // G5
+                { f: 1046.50, t: 3.54, d: 0.90, v: 0.14 } // C6
+            ];
+
+            harmonyNotes.forEach(n => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                const start = now + n.t;
+                const end = start + n.d;
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(n.f, start);
+
+                gain.gain.setValueAtTime(0.0001, start);
+                gain.gain.linearRampToValueAtTime(n.v, start + 0.03);
+                gain.gain.exponentialRampToValueAtTime(0.001, end);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                osc.start(start);
+                osc.stop(end);
+            });
+
+            // Tiếng sparkling chimes lấp lánh ở cuối (3.6s - 4.5s) tạo cảm giác phần thưởng lớn
+            [2093.00, 2349.32, 2637.02, 3135.96].forEach((freq, idx) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                const start = now + 3.65 + idx * 0.09;
+                const end = start + 0.35;
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, start);
+
+                gain.gain.setValueAtTime(0.0001, start);
+                gain.gain.linearRampToValueAtTime(0.08, start + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, end);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                osc.start(start);
+                osc.stop(end);
+            });
+
         } catch (e) {}
     }
 };
@@ -362,6 +523,11 @@ class SchulteScene extends Phaser.Scene {
                 }
             }
         });
+
+        // Nút BACK về Menu trong màn chơi
+        UIHelpers.createFlatButton(this, width / 2, 495, '← MENU', () => {
+            this.scene.start('MenuScene');
+        });
        
         if (window.ytgame && window.ytgame.game && window.ytgame.game.firstFrameReady) {
             window.ytgame.game.firstFrameReady();
@@ -400,7 +566,7 @@ class SchulteScene extends Phaser.Scene {
             const { width, height } = this.scale;
             
             // Nền mờ overlay xuất hiện tức thì
-            this.add.rectangle(width / 2, height / 2, width, height, 0x0F1115, 0.85);
+            this.add.rectangle(width / 2, height / 2, width, height, 0x0F1115, 0.85).setDepth(20);
 
             // --- XÁC ĐỊNH THÔNG ĐIỆP THEO 3 TRẠNG THÁI ---
             let titleText = '';
@@ -409,14 +575,14 @@ class SchulteScene extends Phaser.Scene {
 
             if (!isSave) {
                 // 1. Người chơi chưa vượt threshold -> Khích lệ
-                titleText = '💪 CỐ GẮNG LÊN NÀO!';
+                titleText = 'KEEP PUSHING!';
                 titleColor = '#D29922'; // Màu vàng ấm khích lệ
-                subMessage = 'Chưa đạt mục tiêu 25s, hãy thử lại nhé!';
+                subMessage = 'Under 25s required to rank. Try again!';
             } else {
                 // 2. Người chơi vượt threshold -> Khen ngợi xuất sắc
-                titleText = '🎉 XUẤT SẮC TUYỆT VỜI!';
+                titleText = '🎉 EXCELLENT!';
                 titleColor = '#7EE787'; // Xanh lá sáng
-                subMessage = 'Bạn đã vượt qua mốc thử thách!';
+                subMessage = 'Great job completing the challenge!';
             }
 
             // 1. Hiển thị ngay thông tin cơ bản
@@ -425,30 +591,36 @@ class SchulteScene extends Phaser.Scene {
                 fontFamily: "'JetBrains Mono', monospace",
                 fill: titleColor,
                 fontStyle: 'bold'
-            }).setOrigin(0.5);
+            }).setOrigin(0.5).setDepth(21);
 
             this.add.text(width / 2, height * 0.35, `Time: ${finalTime}s`, {
                 fontSize: '18px',
                 fontFamily: "'JetBrains Mono', monospace",
                 fill: '#E6EDF3'
-            }).setOrigin(0.5);
+            }).setOrigin(0.5).setDepth(21);
 
             // 3. Hiển thị thông báo nếu chơi tốt hơn lần trước (Phá kỷ lục)
             let infoY = 0.41;
             if (isNewRecord) {
-                this.add.text(width / 2, height * infoY, '⭐ KỶ LỤC MỚI CỦA BẠN!', {
+                this.add.text(width / 2, height * infoY, '⭐ NEW PERSONAL RECORD!', {
                     fontSize: '14px',
                     fontFamily: "'JetBrains Mono', monospace",
                     fill: '#F85149',
                     fontStyle: 'bold'
-                }).setOrigin(0.5);
+                }).setOrigin(0.5).setDepth(21);
                 infoY += 0.05;
+
+                // Tung hoa giấy chúc mừng khi đạt ngưỡng và phá kỷ lục cũ
+                if (isSave) {
+                    UIHelpers.spawnConfetti(this);
+                    SoundManager.playCelebration();
+                }
             } else if (subMessage) {
                 this.add.text(width / 2, height * infoY, subMessage, {
                     fontSize: '13px',
                     fontFamily: "'JetBrains Mono', monospace",
                     fill: '#8B949E'
-                }).setOrigin(0.5);
+                }).setOrigin(0.5).setDepth(21);
                 infoY += 0.05;
             }
 
@@ -457,7 +629,7 @@ class SchulteScene extends Phaser.Scene {
                 fontSize: '14px',
                 fontFamily: "'JetBrains Mono', monospace",
                 fill: '#8B949E'
-            }).setOrigin(0.5);
+            }).setOrigin(0.5).setDepth(21);
 
             // 3. Hiển thị luôn các nút bấm tương tác
             let btnHTML = `
@@ -469,7 +641,7 @@ class SchulteScene extends Phaser.Scene {
                     width: 220px;
                     height: 46px;
                     background-color: #1F242C;
-                    border: 2px solid #3FB950;
+                    border: 1.5px solid #2A6A3A;
                     border-radius: 2px;
                     color: #7EE787;
                     font-family: 'JetBrains Mono', monospace;
@@ -486,16 +658,19 @@ class SchulteScene extends Phaser.Scene {
                 </button>
             `;
 
-            let playAgainBtn = this.add.dom(width / 2, height * 0.58, 'div').createFromHTML(btnHTML);
+            let playAgainBtn = this.add.dom(width / 2, height * 0.58, 'div').createFromHTML(btnHTML).setDepth(22);
             
             playAgainBtn.addListener('click');
             playAgainBtn.on('click', () => {
                 this.scene.restart();
             });
 
-            UIHelpers.createFlatButton(this, width / 2, height * 0.68, '🏆 LEADERBOARD', () => {
-                this.scene.start('LeaderboardScene');
+            let lbBtn = UIHelpers.createFlatButton(this, width / 2, height * 0.68, '🏆 LEADERBOARD', () => {
+                this.scene.start('LeaderboardScene', { gameType: 'schulte_table' });
             });
+            if (lbBtn.faceBg) lbBtn.faceBg.setDepth(22);
+            if (lbBtn.btnText) lbBtn.btnText.setDepth(23);
+            if (lbBtn.shadowBg) lbBtn.shadowBg.setDepth(21);
 
             // Show current rank if playTime is below threshold
             if (isSave) {
@@ -534,6 +709,8 @@ class SchulteScene extends Phaser.Scene {
                 let score = Math.max(1000 - Math.floor(finalTime * 10), 0);
                 window.ytgame.engagement.sendScore({ value: score });
             }
+        } else {
+            processSavingAndDisplay(localStorage.getItem('schulte_player_name') || '');
         }
     }
 
@@ -646,21 +823,454 @@ class SchulteScene extends Phaser.Scene {
             confirmBtn.destroy();
             onNameSubmitted(enteredName);
         });
-        
-        // Tạo một container/tracker riêng cho nút xác nhận trong popup để dọn dẹp dễ dàng
-        // let btnBg = this.add.rectangle(width / 2, btnY, 160, 40, 0x008800)
-        //     .setInteractive().setOrigin(0.5).setDepth(33);
-        // let btnText = this.add.text(width / 2, btnY, 'XÁC NHẬN', {
-        //     fontSize: '15px', fill: '#ffffff', fontStyle: 'bold'
-        // }).setOrigin(0.5).setDepth(34);
+       
+    }
+}
 
-        // btnBg.on('pointerover', () => { btnBg.setFillStyle(0x00aa00); });
-        // btnBg.on('pointerout', () => { btnBg.setFillStyle(0x008800); });
-        // btnBg.on('pointerdown', () => { btnBg.setScale(0.97); });
+class SchulteMemoScene extends Phaser.Scene {
+
+    constructor() {
+        super('SchulteMemoScene');
+    }
+
+    init() {
+        this.currentNumber = 1;
+        this.maxNumber = 9;
+        this.startTime = 0;
+        this.timerText = null;
+        this.statusText = null;
+        this.isGameOver = false;
+        this.isMemorizing = true;
+        this.isGameStarted = false;
+        this.correctColor = 0x183424; // Xanh lá thật nhẹ / trầm tinh tế trên nền tối
+        this.wrongColor = 0xaa0000;
+        this.defaultCellColor = 0x1F242C;
+        this.hoverColor = 0x2A323D;
+        let savedBest = localStorage.getItem('schulte_memo_best_time');
+        this.bestTime = savedBest ? parseFloat(savedBest) : '';
+    }
+
+    preload() {}
+
+    create() {
+        const { width, height } = this.scale;
+        this.add.rectangle(width / 2, height / 2, width, height, 0x121212).setDepth(-1);
+
+        // 1. Tiêu đề và Đồng hồ bấm giờ
+        this.add.text(width / 2, 35, '3x3 MEMO', {
+            fontSize: '22px',
+            fontFamily: "'JetBrains Mono', monospace",
+            fill: '#7EE787',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+
+        this.timerText = this.add.text(width / 2, 68, 'Time: 0.0s', {
+            fontSize: '15px',
+            fontFamily: "'JetBrains Mono', monospace",
+            fill: '#8B949E'
+        }).setOrigin(0.5);
+
+        // 2. Dòng trạng thái (Ghi nhớ / Tìm số)
+        this.statusText = this.add.text(width / 2, 102, 'MEMORIZE: 3s', {
+            fontSize: '16px',
+            fontFamily: "'JetBrains Mono', monospace",
+            fill: '#D29922',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+
+        // 3. Tạo lưới số ngẫu nhiên (3x3)
+        let numbers = Array.from({ length: this.maxNumber }, (_, i) => i + 1);
+        Phaser.Utils.Array.Shuffle(numbers);
+
+        const gridSize = 3;
+        const cellSize = 80;
+        const gap = 12;
+        const totalSize = gridSize * cellSize + (gridSize - 1) * gap;
+        const startX = (width - totalSize) / 2 + cellSize / 2;
+        const startY = 165 + cellSize / 2;
+
+        let allCells = [];
+        let index = 0;
+
+        for (let row = 0; row < gridSize; row++) {
+            for (let col = 0; col < gridSize; col++) {
+                let num = numbers[index++];
+                let x = startX + col * (cellSize + gap);
+                let y = startY + row * (cellSize + gap);
+
+                let bg = this.add.rectangle(x, y, cellSize, cellSize, this.defaultCellColor)
+                    .setInteractive()
+                    .setStrokeStyle(2, 0x30363D)
+                    .setDepth(1);
+
+                // Số hiển thị ban đầu trong 3 giây để người chơi ghi nhớ vị trí
+                let text = this.add.text(x, y, num.toString(), {
+                    fontSize: '32px',
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fill: '#E6EDF3',
+                    fontStyle: ''
+                }).setOrigin(0.5).setDepth(2);
+
+                text.correctNum = num;
+                text.isFound = false;
+
+                allCells.push({ bg, text });
+
+                // Xử lý sự kiện bấm ô
+                bg.on('pointerdown', () => {
+                    if (this.isGameOver) return;
+                    if (this.isMemorizing || !this.isGameStarted) return;
+                    if (text.isFound) return;
+
+                    if (num === this.currentNumber) {
+                        // Bấm đúng số cần tìm
+                        text.isFound = true;
+                        text.setText(num.toString());
+                        text.setFill('#7EE787');
+                        bg.setFillStyle(this.correctColor);
+                        bg.setStrokeStyle(1.5, 0x2EA043);
+
+                        this.tweens.add({
+                            targets: [bg, text],
+                            scale: 1.08,
+                            duration: 80,
+                            yoyo: true
+                        });
+
+                        this.currentNumber++;
+                        SoundManager.playCorrect();
+
+                        if (this.currentNumber <= this.maxNumber) {
+                            this.statusText.setText(`FIND NUMBER: ${this.currentNumber}`);
+                        } else {
+                            this.statusText.setText('');
+                            SoundManager.playWin();
+                            this.endGame(true);
+                        }
+                    } else {
+                        // Bấm sai số
+                        bg.setFillStyle(this.wrongColor);
+                        bg.setStrokeStyle(2, 0xF85149);
+                        SoundManager.playWrong();
+
+                        this.time.delayedCall(160, () => {
+                            if (!text.isFound) {
+                                bg.setFillStyle(this.defaultCellColor);
+                                bg.setStrokeStyle(2, 0x30363D);
+                            }
+                        });
+                    }
+                });
+
+                bg.on('pointerover', () => {
+                    if (!this.isGameOver && !this.isMemorizing && !text.isFound) {
+                        bg.setFillStyle(this.hoverColor);
+                        bg.setStrokeStyle(2, 0x58A6FF);
+                    }
+                });
+
+                bg.on('pointerout', () => {
+                    if (!this.isGameOver && !this.isMemorizing && !text.isFound) {
+                        bg.setFillStyle(this.defaultCellColor);
+                        bg.setStrokeStyle(2, 0x30363D);
+                    }
+                });
+            }
+        }
+
+        // Nút BACK về Menu trong màn chơi
+        UIHelpers.createFlatButton(this, width / 2, 495, '← MENU', () => {
+            this.scene.start('MenuScene');
+        });
+
+        // 4. Đếm ngược 3 giây ghi nhớ (3s -> 2s -> 1s -> biến mất & bắt đầu)
+        SoundManager.playBeep(440, 0.15);
+        let countdown = 3;
+
+        this.time.addEvent({
+            delay: 1000,
+            repeat: 2,
+            callback: () => {
+                countdown--;
+                if (countdown > 0) {
+                    this.statusText.setText(`MEMORIZE: ${countdown}s`);
+                    SoundManager.playBeep(440, 0.15);
+                } else {
+                    // Hết 3 giây -> Ẩn toàn bộ số, phát âm thanh hiệu lệnh và bắt đầu tính giờ
+                    allCells.forEach(cell => {
+                        cell.text.setText('');
+                    });
+
+                    SoundManager.playBeep(880, 0.25);
+                    this.isMemorizing = false;
+                    this.isGameStarted = true;
+                    this.startTime = performance.now();
+                    this.statusText.setText('FIND NUMBER: 1');
+                    this.statusText.setFill('#7EE787');
+                }
+            }
+        });
+
+        if (window.ytgame && window.ytgame.game && window.ytgame.game.firstFrameReady) {
+            window.ytgame.game.firstFrameReady();
+        }
+    }
+
+    update() {
+        if (!this.isGameOver && this.isGameStarted && this.startTime > 0) {
+            let elapsedTime = ((performance.now() - this.startTime) / 1000).toFixed(1);
+            this.timerText.setText(`Time: ${elapsedTime}s`);
+        }
+    }
+
+    async endGame(isWin) {
+        let thresholdToSave = 15;
+        this.isGameOver = true;
+        let playTime = (performance.now() - this.startTime) / 1000;
+        let finalTime = parseFloat(playTime.toFixed(1));
         
-        // btnBg.on('pointerup', () => {
+        let isSave = finalTime < thresholdToSave;
+
+        let previousBest = this.bestTime ? parseFloat(this.bestTime) : null;
+        let isNewRecord = false;
+
+        if (previousBest === null || finalTime < previousBest) {
+            this.bestTime = finalTime;
+            localStorage.setItem('schulte_memo_best_time', this.bestTime);
+            if (previousBest !== null) {
+                isNewRecord = true;
+            }
+        }
+
+        const processSavingAndDisplay = (playerName) => {
+            const { width, height } = this.scale;
             
-        // });
+            this.add.rectangle(width / 2, height / 2, width, height, 0x0F1115, 0.85).setDepth(20);
+
+            let titleText = '';
+            let titleColor = '#7EE787';
+            let subMessage = '';
+
+            if (!isSave) {
+                titleText = 'KEEP PUSHING!';
+                titleColor = '#D29922';
+                subMessage = 'Under 15s required to rank. Try again!';
+            } else {
+                titleText = '🎉 EXCELLENT!';
+                titleColor = '#7EE787';
+                subMessage = 'Great job completing the challenge!';
+            }
+
+            this.add.text(width / 2, height * 0.28, titleText, {
+                fontSize: '22px',
+                fontFamily: "'JetBrains Mono', monospace",
+                fill: titleColor,
+                fontStyle: 'bold'
+            }).setOrigin(0.5).setDepth(21);
+
+            this.add.text(width / 2, height * 0.35, `Time: ${finalTime}s`, {
+                fontSize: '18px',
+                fontFamily: "'JetBrains Mono', monospace",
+                fill: '#E6EDF3'
+            }).setOrigin(0.5).setDepth(21);
+
+            let infoY = 0.41;
+            if (isNewRecord) {
+                this.add.text(width / 2, height * infoY, '⭐ NEW PERSONAL RECORD!', {
+                    fontSize: '14px',
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fill: '#F85149',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5).setDepth(21);
+                infoY += 0.05;
+
+                // Tung hoa giấy chúc mừng khi đạt ngưỡng và phá kỷ lục cũ
+                if (isSave) {
+                    UIHelpers.spawnConfetti(this);
+                    SoundManager.playCelebration();
+                }
+            } else if (subMessage) {
+                this.add.text(width / 2, height * infoY, subMessage, {
+                    fontSize: '13px',
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fill: '#8B949E'
+                }).setOrigin(0.5).setDepth(21);
+                infoY += 0.05;
+            }
+
+            let rankTextNode = this.add.text(width / 2, height * (infoY + 0.02), isSave ? 'Syncing score...' : '', {
+                fontSize: '14px',
+                fontFamily: "'JetBrains Mono', monospace",
+                fill: '#8B949E'
+            }).setOrigin(0.5).setDepth(21);
+
+            let btnHTML = `
+                <button style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                    width: 220px;
+                    height: 46px;
+                    background-color: #1F242C;
+                    border: 1.5px solid #2A6A3A;
+                    border-radius: 2px;
+                    color: #7EE787;
+                    font-family: 'JetBrains Mono', monospace;
+                    font-size: 16px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+                    outline: none;
+                ">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.66-5.66"></path>
+                    </svg>
+                    PLAY AGAIN
+                </button>
+            `;
+
+            let playAgainBtn = this.add.dom(width / 2, height * 0.58, 'div').createFromHTML(btnHTML).setDepth(22);
+            playAgainBtn.addListener('click');
+            playAgainBtn.on('click', () => {
+                this.scene.restart();
+            });
+
+            let lbBtn = UIHelpers.createFlatButton(this, width / 2, height * 0.68, '🏆 LEADERBOARD', () => {
+                this.scene.start('LeaderboardScene', { gameType: 'schulte_memo' });
+            });
+            if (lbBtn.faceBg) lbBtn.faceBg.setDepth(22);
+            if (lbBtn.btnText) lbBtn.btnText.setDepth(23);
+            if (lbBtn.shadowBg) lbBtn.shadowBg.setDepth(21);
+
+            if (isSave) {
+                LeaderboardManager.getRank(finalTime, "schulte_memo").then((myRank) => {
+                    if (this && this.scene && this.scene.isActive()) {
+                        let rankString = myRank ? `Your Rank: #${myRank}` : 'Your Rank: --';
+                        rankTextNode.setText(rankString);
+                        rankTextNode.setFontSize('16px');
+                        rankTextNode.setFill('#7EE787');
+                        rankTextNode.setFontStyle('bold');
+                    }
+                }).catch((err) => {
+                    if (this && this.scene && this.scene.isActive()) {
+                        rankTextNode.setText('Your Rank: -- (Offline)');
+                        rankTextNode.setFill('#8B949E');
+                    }
+                });
+                LeaderboardManager.save(playerName, finalTime, "schulte_memo");
+            }
+        };
+
+        if (isSave) {
+            let existingName = localStorage.getItem('schulte_player_name');
+            if (!existingName) {
+                this.showNameInputDialog(finalTime, (newName) => {
+                    processSavingAndDisplay(newName);
+                });
+            } else {
+                processSavingAndDisplay(existingName);
+            }
+
+            if (window.ytgame && window.ytgame.engagement && window.ytgame.engagement.sendScore) {
+                let score = Math.max(1000 - Math.floor(finalTime * 15), 0);
+                window.ytgame.engagement.sendScore({ value: score });
+            }
+        } else {
+            processSavingAndDisplay(localStorage.getItem('schulte_player_name') || '');
+        }
+    }
+
+    showNameInputDialog(finalTime, onNameSubmitted) {
+        const { width, height } = this.scale;
+
+        let overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.85).setDepth(30);
+
+        let modalBg = this.add.rectangle(width / 2, height / 2, width * 0.85, 280, 0x161B22)
+            .setStrokeStyle(2, 0x3FB950)
+            .setOrigin(0.5)
+            .setDepth(31);
+
+        let titleText = this.add.text(width / 2, height / 2 - 75, '🏆 NEW RECORD!', {
+            fontSize: '22px', 
+            fontFamily: "'JetBrains Mono', monospace",
+            fill: '#7EE787', 
+            fontStyle: 'bold'
+        }).setOrigin(0.5).setDepth(32);
+
+        let subText = this.add.text(width / 2, height / 2 - 30, `Time: ${finalTime}s\nEnter your name to save score!`, {
+            fontSize: '13px', 
+            fontFamily: "'JetBrains Mono', monospace",
+            fill: '#8B949E', 
+            align: 'center',
+            lineSpacing: 4
+        }).setOrigin(0.5).setDepth(32);
+
+        let savedName = localStorage.getItem('schulte_player_name') || '';
+        let nameInput = this.add.dom(width / 2, height / 2 + 25, 'div', `
+            width: 220px;
+            height: 46px;
+            position: relative;
+        `).setDepth(32);
+
+        nameInput.node.innerHTML = `
+            <style>
+                .cyber-input::placeholder { 
+                    color: #6e7681 !important; 
+                    opacity: 1 !important;
+                    transition: opacity 0.2s ease;
+                }
+                .cyber-input:focus::placeholder { 
+                    color: transparent !important; 
+                    opacity: 0 !important;
+                }
+            </style>
+            <input type="text"
+                class="cyber-input"
+                value="${savedName}" 
+                placeholder="Enter your name..." 
+                maxLength="15" 
+                autocomplete="off" 
+                autocorrect="off" 
+                autocapitalize="off"
+                style="
+                    width: 100% !important;
+                    height: 100% !important;
+                    font-size: 16px !important;
+                    font-family: 'JetBrains Mono', monospace !important;
+                    text-align: center !important;
+                    background-color: #1F242C !important;
+                    color: #7EE787 !important;
+                    -webkit-text-fill-color: #7EE787 !important;
+                    border: 2px solid #3FB950 !important;
+                    border-radius: 10px !important;
+                    outline: none !important;
+                    font-weight: 600 !important;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+                    padding: 0 14px !important;
+                    box-sizing: border-box !important;
+                    margin: 0 !important;
+                "
+            />
+        `;
+
+        let btnY = height / 2 + 90;
+        let confirmBtn = UIHelpers.createFlatButton(this, width / 2, btnY, 'CONFIRM', () => {
+            let inputElement = nameInput.node.querySelector('input');
+            let enteredName = inputElement.value.trim();
+            if (!enteredName) {
+                nameInput.node.style.borderColor = '#ff3333';
+                return;
+            }
+            localStorage.setItem('schulte_player_name', enteredName);
+            overlay.destroy();
+            modalBg.destroy();
+            titleText.destroy();
+            subText.destroy();
+            nameInput.destroy();
+            confirmBtn.destroy();
+            onNameSubmitted(enteredName);
+        });
     }
 }
 
@@ -672,50 +1282,87 @@ class MenuScene extends Phaser.Scene {
     create() {
         const { width, height } = this.scale;
 
-        // 1. Nền tối chủ đạo (Cyber Dark)
+        // 1. Cyber Dark Background
         this.add.rectangle(width / 2, height / 2, width, height, 0x0F1115);
 
-        // 2. Tiêu đề game & Phụ đề
-        this.add.text(width / 2, height / 3 - 40, 'SCHULTE TABLE', {
-            fontSize: '32px',
+        // Subtle floating background particles for depth
+        for (let i = 0; i < 20; i++) {
+            let x = Phaser.Math.Between(0, width);
+            let y = Phaser.Math.Between(0, height);
+            let particle = this.add.circle(x, y, Phaser.Math.Between(1, 2.5), 0x3FB950, Phaser.Math.FloatBetween(0.2, 0.6));
+            
+            this.tweens.add({
+                targets: particle,
+                y: y - Phaser.Math.Between(50, 150),
+                alpha: 0,
+                duration: Phaser.Math.Between(3000, 6000),
+                repeat: -1,
+                delay: Phaser.Math.Between(0, 3000),
+                onRepeat: () => {
+                    particle.x = Phaser.Math.Between(0, width);
+                    particle.y = height + 10;
+                    particle.alpha = Phaser.Math.FloatBetween(0.2, 0.6);
+                }
+            });
+        }
+
+        // 2. Title & Subtitle
+        let titleText = this.add.text(width / 2, height * 0.18, 'SCHULTE TABLE', {
+            fontSize: '28px',
             fontFamily: "'JetBrains Mono', monospace",
             fill: '#7EE787',
             fontStyle: 'bold'
         }).setOrigin(0.5);
 
-        this.add.text(width / 2, height / 3 + 5, 'Focus - Reflex Training', {
-            fontSize: '14px',
+        // Gentle pulse effect for title
+        this.tweens.add({
+            targets: titleText,
+            scale: { from: 1, to: 1.03 },
+            duration: 1500,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
+
+        this.add.text(width / 2, height * 0.26, 'Focus - Reflex & Memory Training', {
+            fontSize: '13px',
             fontFamily: "'JetBrains Mono', monospace",
             fill: '#8B949E'
         }).setOrigin(0.5);
 
-        this.add.text(width / 2, height / 3 + 30, 'Improve speed reading \nand periperal vision', {
-            fontSize: '14px',
+        // 3. Game Modes Section
+        let startY = height * 0.40;
+        let spacing = 65;
+
+        this.add.text(width / 2, startY - 20, '--- SELECT MODE ---', {
+            fontSize: '11px',
             fontFamily: "'JetBrains Mono', monospace",
-            fill: '#8B949E'
+            fill: '#484F58'
         }).setOrigin(0.5);
 
-
-        // 4. Nút PLAY (Flat UI & Soft Mint Accent)
-        let btnX = width / 2;
-        let btnY = height / 2 + 55;
-        UIHelpers.createFlatButton(this, btnX, btnY, '5x5 Classic', () => {
+        // Short and clean button texts
+        UIHelpers.createFlatButton(this, width / 2, startY + 15, '5x5 CLASSIC', () => {
             this.scene.start('SchulteScene');
         });
 
-        btnY = height / 2 + 130;
-        UIHelpers.createFlatButton(this, btnX, btnY, '3x3 Memory', () => {
+        UIHelpers.createFlatButton(this, width / 2, startY + 15 + spacing, '3x3 MEMORY', () => {
             this.scene.start('SchulteMemoScene');
         });
 
-        // 5. Nút xem Leaderboard (Thêm bổ trợ để mở bảng xếp hạng từ menu)
-        btnY = height / 2 + 210;
-        UIHelpers.createFlatButton(this, btnX, btnY, '🏆 LEADERBOARD', () => {
-            this.scene.start('LeaderboardScene');
+        // 4. System Section
+        let utilityY = startY + 15 + spacing * 2.3;
+
+        this.add.text(width / 2, utilityY - 10, '--- SYSTEM ---', {
+            fontSize: '11px',
+            fontFamily: "'JetBrains Mono', monospace",
+            fill: '#484F58'
+        }).setOrigin(0.5);
+
+        UIHelpers.createFlatButton(this, width / 2, utilityY + 20, 'LEADERBOARD', () => {
+            this.scene.start('LeaderboardScene', { gameType: 'schulte_table' });
         });
 
-
-        // Báo hiệu frame đầu tiên sẵn sàng cho YouTube Playables
+        // Signal first frame ready for YouTube Playables
         if (window.ytgame && window.ytgame.game && window.ytgame.game.firstFrameReady) {
             window.ytgame.game.firstFrameReady();
         }
@@ -738,7 +1385,7 @@ const config = {
     },
     resolution: window.devicePixelRatio || 1,
     roundPixels: true,
-    scene: [MenuScene, SchulteScene, LeaderboardScene]
+    scene: [MenuScene, SchulteScene, SchulteMemoScene, LeaderboardScene]
 };
 
 const game = new Phaser.Game(config);

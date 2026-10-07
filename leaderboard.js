@@ -4,6 +4,13 @@ class LeaderboardScene extends Phaser.Scene {
         super({ key: 'LeaderboardScene' });
     }
 
+    init(data) {
+        // Nhận tham số từ scene gọi tới để kích hoạt đúng tab
+        this.selectedTab = (data && data.gameType) ? data.gameType : 'schulte_table';
+        this.contentElements = [];
+        this.fetchId = 0;
+    }
+
     create() {
         const { width, height } = this.scale;
 
@@ -11,147 +18,37 @@ class LeaderboardScene extends Phaser.Scene {
         this.add.rectangle(width / 2, height / 2, width, height, 0x0F1115);
 
         // 2. Tiêu đề
-        this.add.text(width / 2, height * 0.12, '🏆 LEADERBOARD', {
-            fontSize: '24px',
+        this.add.text(width / 2, 38, '🏆 LEADERBOARD', {
+            fontSize: '22px',
             fontFamily: "'JetBrains Mono', monospace",
             fill: '#7EE787',
             fontStyle: 'bold'
         }).setOrigin(0.5);
 
-        let loadingText = this.add.text(width / 2, height * 0.3, 'Loading data...', {
-            fontSize: '15px',
-            fontFamily: "'JetBrains Mono', monospace",
-            fill: '#8B949E'
-        }).setOrigin(0.5);
+        // 3. Tabs chuyển đổi [ Schulte 5x5 ] [ Memo 3x3 ]
+        this.createTabs();
 
-        // 3. Tải dữ liệu Top 5 từ Firebase
-        LeaderboardManager.getTopScores("schulte_table").then(async (topScores) => {
-            loadingText.destroy();
+        // 4. Tải dữ liệu theo tab ban đầu
+        this.loadLeaderboard(this.selectedTab);
 
-            if (topScores.length === 0) {
-                this.add.text(width / 2, height * 0.3, 'No ranking data yet.', {
-                    fontSize: '15px',
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fill: '#8B949E'
-                }).setOrigin(0.5);
-                return;
-            }
-
-            let myUserId = LeaderboardManager.getUserId();
-            let startY = height * 0.25;
-            let rowHeight = 44; // Khoảng cách giữa các dòng
-
-            // Tiêu đề cột nhỏ phía trên (Soft Gray & Mint)
-            this.add.text(width * 0.12, startY - 30, 'RANKING', { 
-                fontSize: '12px', 
-                fontFamily: "'JetBrains Mono', monospace", 
-                fill: '#8B949E' 
-            }).setOrigin(0, 0.5);
-            
-            this.add.text(width * 0.88, startY - 30, 'TIME', { 
-                fontSize: '12px', 
-                fontFamily: "'JetBrains Mono', monospace", 
-                fill: '#8B949E' 
-            }).setOrigin(1, 0.5);
-            
-            topScores.forEach((item, index) => {
-                let rankNum = index + 1;
-                let isMe = item.userId === myUserId;
-                
-                // Phối màu: Bản thân màu xanh mint sáng (#7EE787), người khác màu trắng ngà (#E6EDF3)
-                let color = isMe ? '#7EE787' : '#E6EDF3';
-                let style = isMe ? 'bold' : 'normal';
-
-                let currentY = startY + (index * rowHeight);
-
-                // Thêm nền khối mờ nhẹ cho mỗi dòng giúp dễ nhìn
-                let rowBg = this.add.rectangle(width / 2, currentY, width * 0.8, 36, 0x161B22, 0.8).setOrigin(0.5);
-                if (isMe) {
-                    rowBg.setStrokeStyle(1, 0x3FB950); // Viền nhẹ làm nổi bật dòng của chính mình
-                }
-
-                // --- CỘT TRÁI: STT + TÊN (Căn trái) ---
-                let leftText = `#${rankNum}.  ${item.name}`;
-                this.add.text(width * 0.12 + 10, currentY, leftText, {
-                    fontSize: '15px',
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fill: color,
-                    fontStyle: style
-                }).setOrigin(0, 0.5);
-
-                // --- CỘT PHẢI: THỜI GIAN (Căn phải tuyệt đối) ---
-                let rightText = `${item.time}s`;
-                this.add.text(width * 0.88 - 10, currentY, rightText, {
-                    fontSize: '15px',
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fill: color,
-                    fontStyle: style
-                }).setOrigin(1, 0.5);
-            });
-
-            // --- KIỂM TRA XEM USER CÓ NẰM TRONG TOP 5 KHÔNG ---
-            let isInTop5 = topScores.some(item => item.userId === myUserId);
-
-            if (!isInTop5 && typeof LeaderboardManager.getUserScore === 'function') {
-                // Lấy thông tin xếp hạng cá nhân nếu ngoài top 5 (Giả sử LeaderboardManager có hàm getMyScore hoặc tương tự)
-                let myScoreData = await LeaderboardManager.getUserScore(myUserId, "schulte_table"); 
-                
-                if (myScoreData && myScoreData.rank > 5) {
-                    let separatorY = startY + (5 * rowHeight) - 10;
-                    
-                    // Vẽ dấu chấm ngắt quãng phân cách giữa Top đầu và vị trí của mình
-                    this.add.text(width / 2, separatorY, '. . .', {
-                        fontSize: '14px',
-                        fontFamily: "'JetBrains Mono', monospace",
-                        fill: '#8B949E'
-                    }).setOrigin(0.5);
-
-                    let myRowY = separatorY + 32;
-
-                    // Khung nền nổi bật cho dòng của chính mình ở dưới
-                    let myBg = this.add.rectangle(width / 2, myRowY, width * 0.8, 36, 0x161B22, 0.9).setOrigin(0.5);
-                    myBg.setStrokeStyle(1, 0x3FB950);
-
-                    let myLeftText = `#${myScoreData.rank}.  ${myScoreData.name} (you)`;
-                    this.add.text(width * 0.12 + 10, myRowY, myLeftText, {
-                        fontSize: '15px',
-                        fontFamily: "'JetBrains Mono', monospace",
-                        fill: '#7EE787',
-                        fontStyle: 'bold'
-                    }).setOrigin(0, 0.5);
-
-                    let myRightText = `${myScoreData.time}s`;
-                    this.add.text(width * 0.88 - 10, myRowY, myRightText, {
-                        fontSize: '15px',
-                        fontFamily: "'JetBrains Mono', monospace",
-                        fill: '#7EE787',
-                        fontStyle: 'bold'
-                    }).setOrigin(1, 0.5);
-                }
-            }
-
-        });
-
-        // 4. Nút BACK (Flat UI Style & Soft Mint Accent)
+        // 5. Nút BACK (Flat UI Style & Soft Mint Accent)
         let btnX = width / 2;
-        let btnY = height * 0.85;
+        let btnY = height * 0.88;
         
-        // Hiệu ứng bóng phẳng dưới nút
-        let shadowBg = this.add.rectangle(btnX, btnY + 3, 200, 46, 0x111318, 1).setOrigin(0.5).setStrokeStyle(1, 0x21262D);
-        let faceBg = this.add.rectangle(btnX, btnY, 200, 46, 0x1F242C).setInteractive().setOrigin(0.5);
-        faceBg.setStrokeStyle(2, 0x3FB950); // Viền xanh lá nhẹ đặc trưng
+        let shadowBg = this.add.rectangle(btnX, btnY + 2, 200, 44, 0x111318, 1).setOrigin(0.5).setStrokeStyle(1, 0x21262D);
+        let faceBg = this.add.rectangle(btnX, btnY, 200, 44, 0x1F242C).setInteractive().setOrigin(0.5);
+        faceBg.setStrokeStyle(1.5, 0x2A6A3A);
 
         let btnText = this.add.text(btnX, btnY, '← BACK', {
-            fontSize: '16px',
+            fontSize: '15px',
             fontFamily: "'JetBrains Mono', monospace",
             fill: '#7EE787',
             fontStyle: 'bold'
         }).setOrigin(0.5);
 
-        // Tương tác hover / click mượt mà
         faceBg.on('pointerover', () => { 
             faceBg.setFillStyle(0x2A323D); 
-            btnText.setFillStyle && btnText.setColor('#FFFFFF');
+            btnText.setColor('#FFFFFF');
         });
         faceBg.on('pointerout', () => { 
             faceBg.setFillStyle(0x1F242C); 
@@ -166,6 +63,210 @@ class LeaderboardScene extends Phaser.Scene {
             btnText.y = btnY;
             this.scene.start('MenuScene'); 
         });
+    }
+
+    createTabs() {
+        const { width } = this.scale;
+        const tabs = [
+            { key: 'schulte_table', label: 'Schulte 5x5', x: width / 2 - 76 },
+            { key: 'schulte_memo', label: 'Memo 3x3', x: width / 2 + 76 }
+        ];
+
+        this.tabButtons = {};
+
+        tabs.forEach(tab => {
+            let tabW = 142;
+            let tabH = 36;
+            let tabY = 82;
+
+            let shadow = this.add.rectangle(tab.x, tabY + 2, tabW, tabH, 0x111318, 0.9).setOrigin(0.5);
+            let bg = this.add.rectangle(tab.x, tabY, tabW, tabH, 0x161B22)
+                .setInteractive()
+                .setOrigin(0.5);
+
+            let text = this.add.text(tab.x, tabY, tab.label, {
+                fontSize: '14px',
+                fontFamily: "'JetBrains Mono', monospace",
+                fill: '#8B949E'
+            }).setOrigin(0.5);
+
+            bg.on('pointerdown', () => {
+                if (this.selectedTab !== tab.key) {
+                    this.switchTab(tab.key);
+                }
+            });
+
+            bg.on('pointerover', () => {
+                if (this.selectedTab !== tab.key) {
+                    bg.setFillStyle(0x22272E);
+                    text.setColor('#E6EDF3');
+                }
+            });
+
+            bg.on('pointerout', () => {
+                if (this.selectedTab !== tab.key) {
+                    bg.setFillStyle(0x161B22);
+                    text.setColor('#8B949E');
+                }
+            });
+
+            this.tabButtons[tab.key] = { bg, text, shadow };
+        });
+
+        this.updateTabStyles();
+    }
+
+    updateTabStyles() {
+        Object.keys(this.tabButtons).forEach(key => {
+            let { bg, text } = this.tabButtons[key];
+            if (key === this.selectedTab) {
+                bg.setFillStyle(0x1F242C);
+                bg.setStrokeStyle(1.5, 0x2A6A3A);
+                text.setColor('#7EE787');
+                text.setFontStyle('bold');
+            } else {
+                bg.setFillStyle(0x161B22);
+                bg.setStrokeStyle(1, 0x30363D);
+                text.setColor('#8B949E');
+                text.setFontStyle('normal');
+            }
+        });
+    }
+
+    switchTab(tabKey) {
+        this.selectedTab = tabKey;
+        this.updateTabStyles();
+        this.loadLeaderboard(tabKey);
+    }
+
+    loadLeaderboard(gameType) {
+        const { width, height } = this.scale;
+
+        this.clearContent();
+
+        this.fetchId++;
+        const currentFetchId = this.fetchId;
+
+        let loadingText = this.add.text(width / 2, height * 0.38, 'Loading data...', {
+            fontSize: '14px',
+            fontFamily: "'JetBrains Mono', monospace",
+            fill: '#8B949E'
+        }).setOrigin(0.5);
+        this.contentElements.push(loadingText);
+
+        const myUserId = LeaderboardManager.getUserId();
+
+        Promise.all([
+            LeaderboardManager.getTopScores(gameType),
+            LeaderboardManager.getUserScore(myUserId, gameType)
+        ]).then(([topScores, myScoreData]) => {
+            if (this.fetchId !== currentFetchId) return;
+            loadingText.destroy();
+            this.renderScores(topScores, myScoreData, myUserId);
+        }).catch(err => {
+            if (this.fetchId !== currentFetchId) return;
+            loadingText.setText('Failed to load data.');
+        });
+    }
+
+    clearContent() {
+        if (this.contentElements) {
+            this.contentElements.forEach(item => {
+                if (item && item.destroy) item.destroy();
+            });
+        }
+        this.contentElements = [];
+    }
+
+    renderScores(topScores, myScoreData, myUserId) {
+        const { width } = this.scale;
+
+        // Tiêu đề cột nhỏ phía trên
+        let headerY = 124;
+        let colHeaderLeft = this.add.text(width * 0.1, headerY, 'RANK  PLAYER', {
+            fontSize: '11px',
+            fontFamily: "'JetBrains Mono', monospace",
+            fill: '#8B949E'
+        }).setOrigin(0, 0.5);
+
+        let colHeaderRight = this.add.text(width * 0.9, headerY, 'TIME', {
+            fontSize: '11px',
+            fontFamily: "'JetBrains Mono', monospace",
+            fill: '#8B949E'
+        }).setOrigin(1, 0.5);
+
+        this.contentElements.push(colHeaderLeft, colHeaderRight);
+
+        if (!topScores || topScores.length === 0) {
+            let noDataText = this.add.text(width / 2, 230, 'No ranking data yet.', {
+                fontSize: '14px',
+                fontFamily: "'JetBrains Mono', monospace",
+                fill: '#8B949E'
+            }).setOrigin(0.5);
+            this.contentElements.push(noDataText);
+        } else {
+            let startY = 156;
+            let rowHeight = 38;
+
+            topScores.slice(0, 5).forEach((item, index) => {
+                let rankNum = index + 1;
+                let isMe = item.userId === myUserId;
+                let color = isMe ? '#7EE787' : '#E6EDF3';
+                let style = isMe ? 'bold' : 'normal';
+                let currentY = startY + (index * rowHeight);
+
+                let rowBg = this.add.rectangle(width / 2, currentY, width * 0.82, 32, 0x161B22, 0.85).setOrigin(0.5);
+                rowBg.setStrokeStyle(1, isMe ? 0x3FB950 : 0x21262D);
+
+                let leftText = `${rankNum}. ${item.name}${isMe ? ' (you)' : ''}`;
+                let leftNode = this.add.text(width * 0.1 + 8, currentY, leftText, {
+                    fontSize: '14px',
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fill: color,
+                    fontStyle: style
+                }).setOrigin(0, 0.5);
+
+                let rightText = `${item.time}s`;
+                let rightNode = this.add.text(width * 0.9 - 8, currentY, rightText, {
+                    fontSize: '14px',
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fill: color,
+                    fontStyle: style
+                }).setOrigin(1, 0.5);
+
+                this.contentElements.push(rowBg, leftNode, rightNode);
+            });
+        }
+
+        // Đường phân cách giữa Top List và Khung thứ hạng của bạn
+        let separatorY = 360;
+        let separator = this.add.rectangle(width / 2, separatorY, width * 0.82, 1, 0x30363D).setOrigin(0.5);
+        this.contentElements.push(separator);
+
+        // Khung "📍 Your Rank: #12 (19.8s)"
+        let myRankY = 405;
+        let myBg = this.add.rectangle(width / 2, myRankY, width * 0.82, 44, 0x161B22, 0.9).setOrigin(0.5);
+
+        let rankStr = '';
+        let rankColor = '#7EE787';
+
+        if (myScoreData && myScoreData.rank) {
+            myBg.setStrokeStyle(1.5, 0x3FB950);
+            rankStr = `📍 Your Rank: #${myScoreData.rank} (${myScoreData.time}s)`;
+        } else {
+            myBg.setStrokeStyle(1, 0x30363D);
+            rankStr = `📍 Your Rank: -- (No score yet)`;
+            rankColor = '#8B949E';
+        }
+
+        let rankNode = this.add.text(width / 2, myRankY, rankStr, {
+            fontSize: '15px',
+            fontFamily: "'JetBrains Mono', monospace",
+            fill: rankColor,
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+
+        this.contentElements.push(myBg, rankNode);
     }
 }
 
