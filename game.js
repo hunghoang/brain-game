@@ -1153,17 +1153,16 @@ class SchulteMemoScene extends Phaser.Scene {
                     } else {
                         // Bấm sai số: Khóa click và phạt cộng thêm 0.1s vào đồng hồ
                         this.isLocked = true;
-                        this.startTime -= 200; // startTime lùi 200ms -> tương đương thời gian chơi bị +0.2s
-
+                        this.startTime -= 500; // startTime lùi 500ms -> tương đương thời gian chơi bị +0.5s
                         bg.setFillStyle(this.wrongColor);
                         bg.setStrokeStyle(2, 0xF85149);
                         SoundManager.playWrong();
 
-                        // Hiệu ứng nháy chữ đỏ +0.2s cạnh đồng hồ
-                        let penaltyText = this.add.text(x, y - 25, '+0.2s', {
+                        // Hiệu ứng nháy chữ đỏ +0.5s cạnh đồng hồ
+                        let penaltyText = this.add.text(x, y - 25, '+0.5s', {
                             fontSize: '16px',
                             fontFamily: "'JetBrains Mono', monospace",
-                            fill: '#F85149',
+                            fill: '#f7372d',
                             fontStyle: 'bold'
                         }).setOrigin(0.5).setDepth(15);
 
@@ -1171,7 +1170,7 @@ class SchulteMemoScene extends Phaser.Scene {
                             targets: penaltyText,
                             y: y - 80,
                             alpha: 0,
-                            duration: 500,
+                            duration: 1000,
                             ease: 'Power1',
                             onComplete: () => penaltyText.destroy()
                         });
@@ -1254,7 +1253,7 @@ class SchulteMemoScene extends Phaser.Scene {
     }
 
     update() {
-        if (!this.isGameOver && this.isGameStarted && this.startTime > 0) {
+        if (!this.isGameOver && this.isGameStarted && this.startTime) {
             let elapsedTime = ((performance.now() - this.startTime) / 1000).toFixed(1);
             this.timerText.setText(`Time: ${elapsedTime}s`);
         }
