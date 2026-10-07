@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schulte Table - YouTube Playables</title>
+    <!-- 1. BẮT BUỘC: Nhúng YouTube Playables SDK lên đầu -->
+    <script src="https://www.youtube.com/playables/v1/sdk.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsfxr/sfxr.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Áp dụng font toàn cục cho các thành phần DOM và body */
+</style>
+    <style>
+        body {
+            background-color: #0F1115;
+            font-family: 'JetBrains Mono', monospace;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        #game-container {
+            width: 400px;
+            height: 600px;
+        }
+
+                /* Ghi đè màu nền và màu chữ, kể cả khi Chrome tự động điền (autofill) */
+        input[type="text"],
+        input[type="text"]:-webkit-autofill,
+        input[type="text"]:-webkit-autofill:hover, 
+        input[type="text"]:-webkit-autofill:focus {
+            background-color: #121212 !important;
+            color: #00ffcc !important;
+            -webkit-text-fill-color: #00ffcc !important;
+            transition: background-color 5000s ease-in-out 0s; /* Mẹo chặn Chrome đổi màu nền khi autofill */
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container"></div>
+
+    <!-- 2. Nhúng thư viện Phaser 3 (có thể dùng CDN hoặc tải về local) -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+        import { getFirestore, 
+        collection, 
+        addDoc, 
+        getDocs, 
+        updateDoc, 
+        doc, 
+        query, 
+        where, 
+        orderBy, 
+        limit, 
+        getCountFromServer } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+        // Cấu hình của bạn từ Firebase Console
+        const firebaseConfig = {
+            apiKey: "AIzaSyDnSElm2A30ZYv2YPuNR8WlfpQjss_39pI",
+            authDomain: "studio-7051126916-8e1e8.firebaseapp.com",
+            projectId: "studio-7051126916-8e1e8",
+            storageBucket: "studio-7051126916-8e1e8.firebasestorage.app",
+            messagingSenderId: "1078874526357",
+            appId: "1:1078874526357:web:77fb8cc490245cfe3ec19c"
+        };
+
+        // Khởi tạo Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Gắn vào biến toàn cục để các Scene trong Phaser dễ dàng gọi
+        window.db = db;
+        window.firebaseFunctions = { collection, addDoc, updateDoc, doc, getDocs, query, orderBy, getCountFromServer, where, limit };
+    </script>
+
+    <!-- 3. File logic game của bạn -->
+    <script src="leaderboard.js"></script>
+    <script src="game.js"></script>
+
+    <script>
+        // BÁO CHO YOUTUBE BIẾT GAME ĐÃ TẢI XONG TOÀN BỘ VÀ SẴN SÀNG CHƠI
+        window.addEventListener('load', () => {
+            if (window.ytgame && window.ytgame.game && window.ytgame.game.gameReady) {
+                window.ytgame.game.gameReady();
+            }
+        });
+    </script>
+</body>
+</html>
