@@ -775,7 +775,7 @@ class SchulteScene extends Phaser.Scene {
                 // 1. Người chơi chưa vượt threshold -> Khích lệ
                 titleText = 'KEEP PUSHING!';
                 titleColor = '#D29922'; // Màu vàng ấm khích lệ
-                subMessage = 'Under 25s required to rank. Try again!';
+                subMessage = 'Under 25s to rank. Try again!';
             } else {
                 // 2. Người chơi vượt threshold -> Khen ngợi xuất sắc
                 titleText = '🎉 EXCELLENT!';
@@ -1151,7 +1151,7 @@ class SchulteMemoScene extends Phaser.Scene {
                             this.endGame(true);
                         }
                     } else {
-                        // Bấm sai số: Khóa click và phạt cộng thêm 0.1s vào đồng hồ
+                        // Bấm sai số: Khóa click và phạt cộng thêm 0.5s vào đồng hồ
                         this.isLocked = true;
                         this.startTime -= 500; // startTime lùi 500ms -> tương đương thời gian chơi bị +0.5s
                         bg.setFillStyle(this.wrongColor);
@@ -1260,7 +1260,7 @@ class SchulteMemoScene extends Phaser.Scene {
     }
 
     async endGame(isWin) {
-        let thresholdToSave = 15;
+        let thresholdToSave = 10;
         this.isGameOver = true;
         let playTime = (performance.now() - this.startTime) / 1000;
         let finalTime = parseFloat(playTime.toFixed(1));
@@ -1290,7 +1290,7 @@ class SchulteMemoScene extends Phaser.Scene {
             if (!isSave) {
                 titleText = 'KEEP PUSHING!';
                 titleColor = '#D29922';
-                subMessage = 'Under 15s required to rank. Try again!';
+                subMessage = 'Under 10s to rank. Try again!';
             } else {
                 titleText = '🎉 EXCELLENT!';
                 titleColor = '#7EE787';
