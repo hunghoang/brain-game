@@ -689,7 +689,7 @@ class SchulteScene extends Phaser.Scene {
                 hiddenCells.splice(randIdx, 1);
             }
         };
-        let displayCount = 0.05;
+        let displayCount = 0.02;
         this.time.addEvent({
             delay: 500,
             repeat: 6, 
