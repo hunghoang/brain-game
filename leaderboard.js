@@ -36,7 +36,7 @@ class LeaderboardScene extends Phaser.Scene {
 
         // 5. Nút BACK (Flat UI Style & Soft Mint Accent)
         let btnX = width / 2;
-        let btnY = height * 0.88;
+        let btnY = height * 0.80;
         
         let shadowBg = this.add.rectangle(btnX, btnY + 2, 200, 44, 0x111318, 1).setOrigin(0.5).setStrokeStyle(1, 0x21262D);
         let faceBg = this.add.rectangle(btnX, btnY, 200, 44, 0x1F242C).setInteractive().setOrigin(0.5);
@@ -80,7 +80,7 @@ class LeaderboardScene extends Phaser.Scene {
         tabs.forEach(tab => {
             let tabW = 142;
             let tabH = 36;
-            let tabY = 82;
+            let tabY = 90;
 
             let shadow = this.add.rectangle(tab.x, tabY + 2, tabW, tabH, 0x111318, 0.9).setOrigin(0.5);
             let bg = this.add.rectangle(tab.x, tabY, tabW, tabH, 0x161B22)
@@ -185,7 +185,7 @@ class LeaderboardScene extends Phaser.Scene {
         const { width } = this.scale;
 
         // Tiêu đề cột nhỏ phía trên
-        let headerY = 124;
+        let headerY = 140;
         let colHeaderLeft = this.add.text(width * 0.1, headerY, 'RANK  PLAYER', {
             fontSize: '11px',
             fontFamily: "'JetBrains Mono', monospace",
@@ -208,7 +208,7 @@ class LeaderboardScene extends Phaser.Scene {
             }).setOrigin(0.5);
             this.contentElements.push(noDataText);
         } else {
-            let startY = 156;
+            let startY = 170;
             let rowHeight = 38;
 
             topScores.slice(0, 5).forEach((item, index) => {

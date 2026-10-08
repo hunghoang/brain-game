@@ -575,7 +575,7 @@ class SchulteScene extends Phaser.Scene {
         Phaser.Utils.Array.Shuffle(numbers); // Trộn ngẫu nhiên các số từ 1-25
 
         const gridSize = 5;
-        const startX = width / 2 - 132;
+        const startX = width / 2 - 138;
         const startY = 150;
         const cellSize = 64;
 
@@ -595,7 +595,7 @@ class SchulteScene extends Phaser.Scene {
 
                 // Hiển thị chữ số (BAN ĐẦU ĐỂ TRỐNG ĐỂ NGƯỜI CHƠI KHÔNG NHÌN LÉN)
                 let text = this.add.text(x, y, '', {
-                    fontSize: '28px',
+                    fontSize: '32px',
                     fontFamily: "'JetBrains Mono', monospace",
                     fill: '#E6EDF3',
                 }).setOrigin(0.5);
@@ -625,13 +625,14 @@ class SchulteScene extends Phaser.Scene {
                         }
                     } else {
                         // Bấm sai (hiệu ứng nháy đỏ nhẹ hoặc phạt tùy logic của bạn)
+                        let oldStyle = bg.fillStyle;
                         bg.setFillStyle(this.wrongColor);
                         SoundManager.playWrong();
                         if (num === this.currentNumber - 1) {
                             // if click to last number, then change it to green afterward
                             this.time.delayedCall(150, () => bg.setFillStyle(this.correctColor));
                         } else {
-                            this.time.delayedCall(150, () => bg.setFillStyle(this.rightColor));
+                            this.time.delayedCall(150, () => bg.setFillStyle(oldStyle));
                         }
                     }
                 });
@@ -651,7 +652,7 @@ class SchulteScene extends Phaser.Scene {
             }
         }
 
-         let overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.9)
+         let overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.8)
             .setDepth(10); // Đặt độ sâu cao
 
         let count = 3;
@@ -723,7 +724,7 @@ class SchulteScene extends Phaser.Scene {
         });
 
         // Nút BACK về Menu trong màn chơi
-        UIHelpers.createFlatButton(this, width / 2, 500, '← MENU', () => {
+        UIHelpers.createFlatButton(this, width / 2, 550, '← MENU', () => {
             this.scene.start('MenuScene');
         });
        
@@ -820,7 +821,7 @@ class SchulteScene extends Phaser.Scene {
                 }
             } else if (subMessage) {
                 this.add.text(width / 2, height * infoY, subMessage, {
-                    fontSize: '13px',
+                    fontSize: '14px',
                     fontFamily: "'JetBrains Mono', monospace",
                     fill: '#8B949E'
                 }).setOrigin(0.5).setDepth(21);
@@ -1242,7 +1243,7 @@ class SchulteMemoScene extends Phaser.Scene {
         }
 
         // Nút BACK về Menu trong màn chơi
-        UIHelpers.createFlatButton(this, width / 2, 495, '← MENU', () => {
+        UIHelpers.createFlatButton(this, width / 2, 550, '← MENU', () => {
             this.scene.start('MenuScene');
         });
 
