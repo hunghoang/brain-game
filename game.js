@@ -1188,7 +1188,7 @@ class SchulteMemoScene extends Phaser.Scene {
 
                         // Hiệu ứng chữ đỏ bay lên từ ô bấm sai
                         let penaltyText = this.add.text(x, y - 25, `+${this.penaltyPerMistake}s`, {
-                            fontSize: '16px',
+                            fontSize: '24px',
                             fontFamily: "'JetBrains Mono', monospace",
                             fill: '#F85149',
                             fontStyle: 'bold'
@@ -1196,9 +1196,9 @@ class SchulteMemoScene extends Phaser.Scene {
 
                         this.tweens.add({
                             targets: penaltyText,
-                            y: y - 75,
+                            y: y - 100,
                             alpha: 0,
-                            duration: 650,
+                            duration: 800,
                             ease: 'Power1',
                             onComplete: () => penaltyText.destroy()
                         });
