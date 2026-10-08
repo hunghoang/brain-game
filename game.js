@@ -1116,7 +1116,7 @@ class SchulteMemoScene extends Phaser.Scene {
 
                 // Số hiển thị ban đầu trong 3 giây để người chơi ghi nhớ vị trí
                 let text = this.add.text(x, y, num.toString(), {
-                    fontSize: '32px',
+                    fontSize: '40px',
                     fontFamily: "'JetBrains Mono', monospace",
                     fill: '#E6EDF3',
                     fontStyle: ''
