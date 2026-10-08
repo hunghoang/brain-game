@@ -595,7 +595,7 @@ class SchulteScene extends Phaser.Scene {
 
                 // Hiển thị chữ số (BAN ĐẦU ĐỂ TRỐNG ĐỂ NGƯỜI CHƠI KHÔNG NHÌN LÉN)
                 let text = this.add.text(x, y, '', {
-                    fontSize: '32px',
+                    fontSize: '40px',
                     fontFamily: "'JetBrains Mono', monospace",
                     fill: '#E6EDF3',
                 }).setOrigin(0.5);
