@@ -40,12 +40,12 @@ class LeaderboardScene extends Phaser.Scene {
         
         let shadowBg = this.add.rectangle(btnX, btnY + 2, 200, 44, 0x111318, 1).setOrigin(0.5).setStrokeStyle(1, 0x21262D);
         let faceBg = this.add.rectangle(btnX, btnY, 200, 44, 0x1F242C).setInteractive().setOrigin(0.5);
-        faceBg.setStrokeStyle(1.5, 0x2A6A3A);
+        faceBg.setStrokeStyle(2, 0x2EA043);
 
         let btnText = this.add.text(btnX, btnY, '← BACK', {
             fontSize: '15px',
             fontFamily: "'JetBrains Mono', monospace",
-            fill: '#7EE787',
+            fill: '#3FB950',
             fontStyle: 'bold'
         }).setOrigin(0.5);
 
@@ -55,7 +55,7 @@ class LeaderboardScene extends Phaser.Scene {
         });
         faceBg.on('pointerout', () => { 
             faceBg.setFillStyle(0x1F242C); 
-            btnText.setColor('#7EE787');
+            btnText.setColor('#3FB950');
         });
         faceBg.on('pointerdown', () => { 
             faceBg.y = btnY + 2; 
@@ -124,8 +124,8 @@ class LeaderboardScene extends Phaser.Scene {
             let { bg, text } = this.tabButtons[key];
             if (key === this.selectedTab) {
                 bg.setFillStyle(0x1F242C);
-                bg.setStrokeStyle(1.5, 0x2A6A3A);
-                text.setColor('#7EE787');
+                bg.setStrokeStyle(2, 0x2EA043);
+                text.setColor('#3FB950');
                 text.setFontStyle('bold');
             } else {
                 bg.setFillStyle(0x161B22);

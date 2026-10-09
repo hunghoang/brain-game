@@ -8,20 +8,86 @@ class UIHelpers {
      * @param {Function} onClick - Callback khi bấm nút
      * @param {object} options - Tùy chọn mở rộng (nếu cần thay đổi kích thước)
      */
-    static createFlatButton(scene, btnX, btnY, text, onClick) {
+    static createFlatButton(scene, btnX, btnY, text, onClick, options = {}) {
+        const width = options.width || 220;
+        const height = options.height || 46;
+        const purpleGreenBorder = !!options.purpleGreenBorder;
         
-        let shadowBg = scene.add.rectangle(btnX, btnY + 2, 220, 46, 0x111318, 1).setOrigin(0.5).setStrokeStyle(1, 0x21262D);
+        let shadowBg = scene.add.rectangle(btnX, btnY + 2, width, height, 0x111318, 1).setOrigin(0.5).setStrokeStyle(1, 0x21262D);
         
-        let faceBg = scene.add.rectangle(btnX, btnY, 220, 46, 0x1F242C)
+        let borderGfx = null;
+        if (purpleGreenBorder) {
+            borderGfx = scene.add.graphics().setDepth(35.5);
+            borderGfx.setPosition(btnX, btnY);
+            
+            const halfW = width / 2;
+            const halfH = height / 2;
+            const strokeWidth = 2;
+            
+            // Xanh (#3FB950) và Tím neon (#A371F7)
+            const cGreen = { r: 63, g: 185, b: 80 };
+            const cPurple = { r: 163, g: 113, b: 247 };
+            
+            const lerpColor = (t) => {
+                const r = Math.round(cGreen.r + (cPurple.r - cGreen.r) * t);
+                const g = Math.round(cGreen.g + (cPurple.g - cGreen.g) * t);
+                const b = Math.round(cGreen.b + (cPurple.b - cGreen.b) * t);
+                return (r << 16) | (g << 8) | b;
+            };
+
+            // 1. Cạnh trái: 100% xanh lá
+            borderGfx.lineStyle(strokeWidth, lerpColor(0), 1);
+            borderGfx.beginPath();
+            borderGfx.moveTo(-halfW, halfH);
+            borderGfx.lineTo(-halfW, -halfH);
+            borderGfx.strokePath();
+
+            // 2. Cạnh phải: 100% tím
+            borderGfx.lineStyle(strokeWidth, lerpColor(1), 1);
+            borderGfx.beginPath();
+            borderGfx.moveTo(halfW, -halfH);
+            borderGfx.lineTo(halfW, halfH);
+            borderGfx.strokePath();
+
+            // 3. Cạnh trên: gradient từ xanh (trái) sang tím (phải)
+            const segments = 24;
+            const segW = width / segments;
+            for (let i = 0; i < segments; i++) {
+                const x1 = -halfW + i * segW;
+                const x2 = -halfW + (i + 1) * segW;
+                const t = (i + 0.5) / segments;
+                borderGfx.lineStyle(strokeWidth, lerpColor(t), 1);
+                borderGfx.beginPath();
+                borderGfx.moveTo(x1, -halfH);
+                borderGfx.lineTo(x2, -halfH);
+                borderGfx.strokePath();
+            }
+
+            // 4. Cạnh dưới: gradient từ xanh (trái) sang tím (phải)
+            for (let i = 0; i < segments; i++) {
+                const x1 = -halfW + i * segW;
+                const x2 = -halfW + (i + 1) * segW;
+                const t = (i + 0.5) / segments;
+                borderGfx.lineStyle(strokeWidth, lerpColor(t), 1);
+                borderGfx.beginPath();
+                borderGfx.moveTo(x1, halfH);
+                borderGfx.lineTo(x2, halfH);
+                borderGfx.strokePath();
+            }
+        }
+
+        let faceBg = scene.add.rectangle(btnX, btnY, width, height, 0x1F242C)
             .setInteractive()
             .setOrigin(0.5);
-        faceBg.setStrokeStyle(1.5, 0x2A6A3A);
+        if (!purpleGreenBorder) {
+            faceBg.setStrokeStyle(2, 0x2EA043);
+        }
         faceBg.setDepth(35);
 
         let btnText = scene.add.text(btnX, btnY, text, {
             fontSize: '16px',
             fontFamily: "'JetBrains Mono', monospace",
-            fill: '#7EE787',
+            fill: '#3FB950',
             fontStyle: 'bold'
         }).setOrigin(0.5).setDepth(36);
 
@@ -31,23 +97,30 @@ class UIHelpers {
         });
         faceBg.on('pointerout', () => { 
             faceBg.setFillStyle(0x1F242C); 
-            btnText.setColor('#7EE787');
+            btnText.setColor('#3FB950');
+            faceBg.y = btnY;
+            btnText.y = btnY;
+            if (borderGfx) borderGfx.y = btnY;
         });
         faceBg.on('pointerdown', () => { 
             faceBg.y = btnY + 2; 
             btnText.y = btnY + 2; 
+            if (borderGfx) borderGfx.y = btnY + 2;
         });
         faceBg.on('pointerup', () => {
             faceBg.y = btnY; 
             btnText.y = btnY;
+            if (borderGfx) borderGfx.y = btnY;
             onClick();
         });
         return {
             shadowBg,
             faceBg,
             btnText,
+            borderGfx,
             // Viết sẵn một hàm tiện ích nhỏ bên trong object để destroy luôn cho gọn
             destroy: function() {
+                if (borderGfx) borderGfx.destroy();
                 shadowBg.destroy();
                 faceBg.destroy();
                 btnText.destroy();
@@ -845,9 +918,9 @@ class SchulteScene extends Phaser.Scene {
                     width: 220px;
                     height: 46px;
                     background-color: #1F242C;
-                    border: 1.5px solid #2A6A3A;
+                    border: 2px solid #2EA043;
                     border-radius: 2px;
-                    color: #7EE787;
+                    color: #3FB950;
                     font-family: 'JetBrains Mono', monospace;
                     font-size: 16px;
                     font-weight: bold;
@@ -1396,9 +1469,9 @@ class SchulteMemoScene extends Phaser.Scene {
                     width: 220px;
                     height: 46px;
                     background-color: #1F242C;
-                    border: 1.5px solid #2A6A3A;
+                    border: 2px solid #2EA043;
                     border-radius: 2px;
-                    color: #7EE787;
+                    color: #3FB950;
                     font-family: 'JetBrains Mono', monospace;
                     font-size: 16px;
                     font-weight: bold;
@@ -1658,16 +1731,16 @@ class MenuScene extends Phaser.Scene {
             fill: '#484F58'
         }).setOrigin(0.5);
 
-        // Short and clean button texts
+        // Short and clean button texts with static green-purple combined border
         UIHelpers.createFlatButton(this, width / 2, startY + 15, '5x5 CLASSIC', () => {
             SoundManager.stopMenuBGM();
             this.scene.start('SchulteScene');
-        });
+        }, { purpleGreenBorder: true });
 
         UIHelpers.createFlatButton(this, width / 2, startY + 15 + spacing, '3x3 MEMORY', () => {
             SoundManager.stopMenuBGM();
             this.scene.start('SchulteMemoScene');
-        });
+        }, { purpleGreenBorder: true });
 
         // 4. System Section
         let utilityY = startY + 15 + spacing * 2.3;
